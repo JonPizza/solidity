@@ -79,46 +79,78 @@ contract Ownable {
 //Use SafeMath
 //Give beans powers
 
-contract DigiBeans is Ownable {
+contract DigiSeeds is Ownable {
     
-    mapping (uint => address) beanToOwner;
-    mapping (address => uint) ownerBeanCount;
+    mapping (uint => address) itemToOwner;
+    mapping (address => uint) ownerItemCount;
 
-    event NewBean(uint id, uint _dna);
+    event NewSeed(uint id, uint dna);
+    event NewPlant(uint id, uint dna);
 
-    uint startingBeanPrice = 0.001 ether; //Will increase over time
-    uint beanDnaDigits = 8;
-    uint beanDnaMod = 10**beanDnaDigits;
+    uint seedPrice = 1000000000000000; //Will increase over time 0.001
+    uint seedDnaDigits = 8;
+    uint growSeedPrice = 10000000000000000; //0.01, locked
+    uint seedDnaMod = 10**seedDnaDigits;
     uint startTime = now; //will be used as a hack to save space
     uint nonce = 1;
 
-    uint specialBeanPrice = 1 ether; //Locked at 1 ether
-    //A special bean will have the dna 0 to 100000, so 1 in 1000 chance of getting special bean
-    //by buying a regular bean
+    uint specialSeedPrice = 1000000000000000000; //Locked at 1 ether
+    //A special seed will have the dna 0 to 10000, so 1 in 10000 chance of getting special seed
+    //by buying a regular seed
     
-    struct DigiBean {
-        uint8 power;
-        uint32 dna;
-        uint32 creationTime;
-        bool special;
+    struct DigiSeed {
+      uint32 dna;
+      uint32 cooldownTime;
+      bool special;
     }
 
-    DigiBean[] public digibeans;
+    struct DigiPlant {
+      uint8 level;
+      uint8 power;
+      uint32 cooldownTime;
+      uint32 creationTime;
+      uint32 dna;
+      bool special;
+    }
+
+    DigiSeed[] public digiseeds;
+    DigiPlant[] public digiplants;
     
-    function _generateRandomDna() private view returns (uint) {
-      return uint(keccak256(abi.encodePacked(now, msg.sender, ownerBeanCount[msg.sender], startingBeanPrice))) % beanDnaMod;
+    function _generateRandomDna() private returns (uint32) {
+      nonce++;
+      return uint32(uint32(keccak256(abi.encodePacked(nonce, now, msg.sender, ownerItemCount[msg.sender], seedPrice))) % seedDnaMod);
     }
 
-    function _generateRandomPower() private view returns (uint) {
-      return uint(keccak256(abi.encodePacked(now, msg.sender, ownerBeanCount[msg.sender], startingBeanPrice))) % 257;
+    function _generateRandomPower() private returns (uint8) {
+      nonce++;
+      return uint8(uint8(keccak256(abi.encodePacked(nonce, now, msg.sender, ownerItemCount[msg.sender], seedPrice))) % 256);
     }
 
-    function buyRandomBean() external payable {
-      require(msg.value == startingBeanPrice);
-      uint id = digibeans.push(DigiBean(uint8(_generateRandomPower()), uint32(_generateRandomDna()), uint32(now-startTime), false));
-      beanToOwner[id] = msg.sender;
-      ownerBeanCount[msg.sender]++;
-      emit NewBean(id, digibeans[id].dna);
+    function makeRandomSeed() private {
+      uint id = digiseeds.push(DigiSeed(_generateRandomDna(), uint32(now-startTime), uint32(now-startTime), false));
+      itemToOwner[id] = msg.sender;
+      ownerItemCount[msg.sender]++;
+      emit NewSeed(id, digiseeds[id].dna);
+    }
+
+    function buyRandomSeed() external payable {
+      require(msg.value == seedPrice);
+      makeRandomSeed();
+    }
+
+    function triggerCooldown(uint _id) internal {
+      digiseeds[_id].cooldownTime = uint32(now+1 days);
+    }
+
+    function dnaEditor(uint _dna) private returns (uint) {
+      return _dna;
+    }
+
+    function growSeed(uint _id) external payable {
+      require(msg.value == growSeedPrice);
+      require(msg.sender == itemToOwner[_id]);
+      DigiSeed storage digiseed = digiseeds[_id];
+      _plantId = digiplants.push(DigiPlant(1, _generateRandomPower(), uint32(now-startTime), uint32(now-startTime), false));
     }
 
     function withdraw() external onlyOwner {
